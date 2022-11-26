@@ -82,7 +82,7 @@ Loop2:
     sta RESP1 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Draw the 192 visible scanlines
+;; Draw the 192/2 visible scanlines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ldx #96
 GameLineLoop:
@@ -139,6 +139,50 @@ endOfLine:
        sta WSYNC   ; output the 30 recommended overscan lines
     REPEND
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Process joystick input for player 0/1 up/down
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+CheckP0Up:
+    lda #%00010000           ; joystick up for player 0
+    bit SWCHA
+    bne CheckP0Down
+    lda P0YPos
+    cmp #90                  ; if (player0 Y position > 90)
+    bpl CheckP0Down          ;    then: skip increment
+P0UpPressed:                 ;    else:
+    inc P0YPos               ;        increment Y position
+
+CheckP0Down:
+    lda #%00100000           ; joystick down for player 0
+    bit SWCHA
+    bne CheckP1Up
+    lda P0YPos
+    cmp #15                  ; if (player0 Y position < 15)
+    bmi CheckP1Up            ;    then: skip decrement
+P0DownPressed:               ;    else:
+    dec P0YPos               ;        decrement Y position
+
+CheckP1Up:
+    lda #%00000001           ; joystick up for player 1
+    bit SWCHA
+    bne CheckP1Down
+    lda P1YPos
+    cmp #90                  ; if (player1 Y position > 90)
+    bpl CheckP1Down          ;    then: skip increment
+P1UpPressed:                 ;    else:
+    inc P1YPos               ;        increment Y position
+
+CheckP1Down:
+    lda #%00000010           ; joystick down for player 1
+    bit SWCHA
+    bne EndInputCheck
+    lda P1YPos
+    cmp #15                   ; if (player1 Y position < 15)
+    bmi EndInputCheck         ;    then: skip decrement
+P1DownPressed:                ;    else:
+    dec P1YPos                ;        decrement Y position
+
+EndInputCheck:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Loop to next frame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
