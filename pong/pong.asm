@@ -89,7 +89,11 @@ GameLineLoop:
     sta WSYNC 
     txa 
     cmp P0YPos      ; check if we should display p0 paddle
-    bne noP0Display
+    bpl noP0Display ; if we are above the Y, we dont display
+    clc
+    adc #10
+    cmp P0YPos      ; if we are 10 steps below we dont display
+    bmi noP0Display
 
     lda #%00011000
     sta GRP0
@@ -105,7 +109,11 @@ noP0Display:
 displayP1:
     txa 
     cmp P1YPos           ; check if we should display p1 paddle
-    bne noP1Display 
+    bpl noP1Display      ; if we are above the Y, we dont display
+    clc
+    adc #10
+    cmp P1YPos
+    bmi noP1Display     ; if we are 10 steps below we dont display
     lda #%00011000
     sta GRP1
     lda #$34
