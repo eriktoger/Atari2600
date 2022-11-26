@@ -14,6 +14,11 @@
 
 P0YPos          byte         ; player 0 y-position
 P1YPos          byte         ; player 1 y-position
+BallXPos        byte         ; ball x-position
+BallYPos        byte         ; ball y-position
+BallXMovement   byte         ; ball X-movement
+BallYMovement   byte         ; ball y-movement
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -31,6 +36,11 @@ Reset:
     lda #50
     sta P0YPos              ; P0YPos  = 50
     sta P1YPos              ; P1YPos  = 50
+    lda #45
+    sta BallYPos            ; BallYPos = 45
+    sta BallXPos            ; BallXPos = 45
+    lda #0
+    sta BallXMovement       ; BallXMovement = 0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Start a new frame by configuring VBLANK and VSYNC
@@ -54,63 +64,94 @@ StartFrame:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Let the TIA output the 37 recommended lines of VBLANK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    REPEAT 35
+    REPEAT 31
         sta WSYNC
     REPEND
-
-
-
-    lda #0
-    sta VBLANK     ; turn VBLANK off
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Calculations and tasks performed during the VBLANK section
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ldx #3
+    lda #$C2
+    sta COLUBK
+    lda #$1C ; light green
+    sta COLUPF
+
+    ldx #5      ; placing p0 to the left
     sta WSYNC
 Loop1:
     dex
     bne Loop1 
     sta RESP0 
-    ldx #13 
-    sta WSYNC 
+
+    sta WSYNC
+    ldx #12     ; placing p1 to the right
 Loop2:
     dex
     bne Loop2
     dex
-    dex
     sta RESP1 
+    sta WSYNC
 
+    lda BallXPos
+    sec
+Div15Loop
+    sbc #15                 ; subtract 15 from accumulator
+    bcs Div15Loop           ; loop until carry-flag is clear
+    eor #7                  ; handle offset range from -8 to 7
+    asl
+    asl
+    asl
+    asl                    ; four shift lefts to get only the top 4 bits
+    sta HMBL               ; store the fine offset to the correct HMxx
+    sta RESBL
+
+    sta WSYNC
+    sta HMOVE
+    sta WSYNC
+    lda #0
+    sta VBLANK     ; turn VBLANK off
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Draw the 192/2 visible scanlines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     ldx #96
+
 GameLineLoop:
     sta WSYNC 
-    txa 
+    txa
     cmp P0YPos      ; check if we should display p0 paddle
     bpl noP0Display ; if we are above the Y, we dont display
     clc
     adc #10
     cmp P0YPos      ; if we are 10 steps below we dont display
     bmi noP0Display
-
-    lda #%00011000
-    sta GRP0
     lda #$98
     sta COLUP0
-    jmp displayP1    
+    lda #%00011000
+    sta GRP0
+
+    jmp displayBall
 noP0Display:
     lda #%00000000
     sta GRP0
     lda #0
     sta COLUP0
 
+displayBall:
+    txa
+    cmp BallYPos
+    bne noBall
+    lda #2
+    sta ENABL  ; enable the ball!
+    jmp displayP1
+noBall:
+    lda #0    ;zero disables the ball
+    sta ENABL  ;disable the ball
+
 displayP1:
-    txa 
+    txa
     cmp P1YPos           ; check if we should display p1 paddle
     bpl noP1Display      ; if we are above the Y, we dont display
-    clc
     adc #10
     cmp P1YPos
     bmi noP1Display     ; if we are 10 steps below we dont display
@@ -138,6 +179,8 @@ endOfLine:
     REPEAT 30
        sta WSYNC   ; output the 30 recommended overscan lines
     REPEND
+    lda #0
+    sta VBLANK               ; turn off VBLANK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Process joystick input for player 0/1 up/down
@@ -183,9 +226,36 @@ P1DownPressed:                ;    else:
     dec P1YPos                ;        decrement Y position
 
 EndInputCheck:
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Check collision
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    lda #%01000000
+    bit CXP0FB
+    beq P1Collision
+    lda #1
+    sta BallXMovement
+
+P1Collision:
+    lda #%01000000
+    bit CXP1FB
+    beq UpdateBall
+    lda #0
+    sta BallXMovement
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Loop to next frame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+UpdateBall:
+    lda BallXMovement
+    cmp #0
+    bne BallGoLeft
+    dec BallXPos
+    jmp NextFrame
+BallGoLeft:
+    inc BallXPos
+NextFrame:
+    sta CXCLR
     jmp StartFrame
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
