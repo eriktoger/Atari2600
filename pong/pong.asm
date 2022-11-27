@@ -36,13 +36,13 @@ Reset:
     lda #50
     sta P0YPos              ; P0YPos  = 50
     lda #95
-    sta P1YPos              ; P1YPos  = 50
+    sta P1YPos              ; P1YPos  = 95
     lda #10
-    sta BallYPos            ; BallYPos = 45
+    sta BallYPos            ; BallYPos = 10
     lda #80
-    sta BallXPos            ; BallXPos = 45
+    sta BallXPos            ; BallXPos = 80
     lda #%00000001
-    sta BallMovement       ; BallMovement = 0
+    sta BallMovement       ; BallMovement = 00000001
     ; first bit is left or right  with zero being left
     ; second bit is up or down with zero being up
     ; rest of the bits show if the y change is 0,1,2,3
@@ -69,7 +69,7 @@ StartFrame:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Let the TIA output the 37 recommended lines of VBLANK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    REPEAT 32
+    REPEAT 32 ; We use 5 Wsync when deciding x-positions
         sta WSYNC
     REPEND
 
@@ -234,7 +234,7 @@ CheckP0Up:
     bit SWCHA
     bne CheckP0Down
     lda P0YPos
-    cmp #94                  ; if (player0 Y position > 90)
+    cmp #96                  ; if (player0 Y position > 96)
     bpl CheckP0Down          ;    then: skip increment
 P0UpPressed:                 ;    else:
     inc P0YPos               ;        increment Y position
@@ -244,7 +244,7 @@ CheckP0Down:
     bit SWCHA
     bne CheckP1Up
     lda P0YPos
-    cmp #13                  ; if (player0 Y position < 15)
+    cmp #13                  ; if (player0 Y position < 13)
     bmi CheckP1Up            ;    then: skip decrement
 P0DownPressed:               ;    else:
     dec P0YPos               ;        decrement Y position
@@ -254,7 +254,7 @@ CheckP1Up:
     bit SWCHA
     bne CheckP1Down
     lda P1YPos
-    cmp #90                  ; if (player1 Y position > 90)
+    cmp #96                  ; if (player1 Y position > 96)
     bpl CheckP1Down          ;    then: skip increment
 P1UpPressed:                 ;    else:
     inc P1YPos               ;        increment Y position
@@ -264,7 +264,7 @@ CheckP1Down:
     bit SWCHA
     bne EndInputCheck
     lda P1YPos
-    cmp #15                   ; if (player1 Y position < 15)
+    cmp #13                   ; if (player1 Y position < 13)
     bmi EndInputCheck         ;    then: skip decrement
 P1DownPressed:                ;    else:
     dec P1YPos                ;        decrement Y position
@@ -274,113 +274,71 @@ EndInputCheck:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Check collision
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-P0Collision:    
+P0Collision:        
     lda #%01000000
-    bit CXP0FB
-    beq P1Collision
+    bit CXP0FB              ; check if there is a collision between player0 and ball
+    beq P1Collision         ; if not, go to player1
     lda BallMovement
-    eor #%10000000
+    eor #%10000000          ; toggle the direction if collision
     sta BallMovement
-    jmp BallPFCollision
+    jmp BallWallCollision   ; We dont need to check player1 if player0 is hit
 
 P1Collision:
     lda #%01000000
-    bit CXP1FB
-    beq BallPFCollision
+    bit CXP1FB              ; check if there is a collision between player1 and ball
+    beq BallWallCollision   ; if not, go to Ball vs Wall
     lda BallMovement
-    eor #%10000000
+    eor #%10000000          ; toggle the direction if collision
     sta BallMovement
 
-BallPFCollision:
+BallWallCollision:
     lda BallYPos
-    and #%11111111
-    bne BallUpper ; if zero
-    lda BallMovement
-    eor #%01000000
-    sta BallMovement
-    jmp UpdateBall
-BallUpper:
-    lda BallYPos
+    beq SwitchVertical      ; if y-pos is zero we need to make the ball go up
     eor #97
-    bne UpdateBall
+    beq SwitchVertical      ; if y-pos is 97 we need to make the ball go up
+    jmp UpdateBall          ;if not zero or 97 we skip SwitchVertical
+SwitchVertical
     lda BallMovement
     eor #%01000000
     sta BallMovement
     
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Lpdate ball position
+;; Update ball position
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 UpdateBall:
     lda BallMovement
-    and #%10000000
-    cmp #%00000000
+    and #%10000000      ;check if right flag is set
     bne BallGoLeft
     dec BallXPos
     dec BallXPos
-    jmp UpOrDown
+    jmp VerticalMovement
 BallGoLeft:
     inc BallXPos
     inc BallXPos
-UpOrDown:    
+VerticalMovement:    
     lda BallMovement
     and #%01000000
-    cmp #%00000000
     bne BallGoDown
 BallGoUp:
     lda BallMovement
     and #%00000011
     tay
-RaiseBall:
+RaiseBallLoop:
     beq NextFrame
     inc BallYPos
     dey
-    jmp RaiseBall 
+    jmp RaiseBallLoop 
 
 BallGoDown:
     lda BallMovement
     and #%00000011
     tay
-LowerBall:
+LowerBallLoop:
     beq NextFrame
     dec BallYPos
     dey
-    jmp LowerBall 
-
-; UpdateBall:
-;     lda BallMovement
-;     and #%10000000
-;     cmp #%00000000
-;     bne BallGoLeft
-;     dec BallXPos
-;     dec BallXPos
-;     jmp BallGoUp
-; BallGoLeft:
-;     inc BallXPos
-;     inc BallXPos
-
-;     lda BallMovement
-;     and #%01000000
-;     bne BallGoDown
-; BallGoUp:
-;     lda BallMovement
-;     and #%00000011
-;     tay
-; RaiseBall:
-;     inc BallYPos
-;     dey
-;     bne RaiseBall
-;     jmp NextFrame 
-
-; BallGoDown:
-;     lda BallMovement
-;     and #%00000011
-;     tay
-; LowerBall:
-;     dec BallYPos
-;     dey
-;     bne LowerBall
-;     jmp NextFrame    
+    jmp LowerBallLoop 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Loop to next frame
