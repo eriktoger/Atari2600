@@ -132,17 +132,11 @@ Div15Loop
     sta PF1
     sta PF2
 
-    ; 6 scanlines for upper border
-    sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
+    sta WSYNC  ; 1 scanline for upper border
     
     lda #$C2
     sta COLUBK
-    ldx #95 ; (192 - 12)/2 = 90 scanlines
+    ldx #95 ; (192 - 2)/2 = 95 scanlines
     lda #0
     sta PF0
     sta PF1
@@ -213,13 +207,6 @@ endOfLine:
     sta PF0
     sta PF1
     sta PF2
-
-    sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
-    ;sta WSYNC
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Output 30 more VBLANK overscan lines to complete our frame
