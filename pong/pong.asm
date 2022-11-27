@@ -296,12 +296,38 @@ BallWallCollision:
     beq SwitchVertical      ; if y-pos is zero we need to make the ball go up
     eor #97
     beq SwitchVertical      ; if y-pos is 97 we need to make the ball go up
-    jmp UpdateBall          ;if not zero or 97 we skip SwitchVertical
+    jmp BallPassedP0        ;if not zero or 97 we skip SwitchVertical
 SwitchVertical
     lda BallMovement
     eor #%01000000
     sta BallMovement
-    
+
+BallPassedP0:
+    lda BallXPos
+    bmi BallPassedP1        ; needed since the right side is negative
+    sec
+    cmp #5
+    bpl BallPassedP1
+    lda #10
+    sta BallYPos            ; BallYPos = 10
+    lda #80
+    sta BallXPos            ; BallXPos = 80
+    lda #%00000001
+    sta BallMovement        ; BallMovement = 00000001
+    jmp NextFrame
+
+BallPassedP1:
+    lda BallXPos
+    bpl UpdateBall
+    cmp #144
+    bmi UpdateBall
+    lda #10
+    sta BallYPos            ; BallYPos = 10
+    lda #80
+    sta BallXPos            ; BallXPos = 80
+    lda #%00000001
+    sta BallMovement       ; BallMovement = 00000001
+    jmp NextFrame
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Update ball position
