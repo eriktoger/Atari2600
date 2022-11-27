@@ -17,6 +17,8 @@ P1YPos          byte         ; player 1 y-position
 BallXPos        byte         ; ball x-position
 BallYPos        byte         ; ball y-position
 BallMovement    byte         ; ball movement pattern
+P0Paused        byte         ; player 0 has paused
+P1Paused        byte         ; player 1 has paused
 Temp            byte         ; debugging tool
 
 
@@ -42,7 +44,11 @@ Reset:
     lda #80
     sta BallXPos            ; BallXPos = 80
     lda #%00000001
-    sta BallMovement       ; BallMovement = 00000001
+    sta BallMovement        ; BallMovement = 00000001
+    lda #1
+    sta P0Paused            ; start the game with p0 paused
+    lda #0
+    sta P1Paused            ; start with
     ; first bit is left or right  with zero being left
     ; second bit is up or down with zero being up
     ; rest of the bits show if the y change is 0,1,2,3
@@ -227,6 +233,27 @@ endOfLine:
     sta VBLANK               ; turn off VBLANK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Pause Game
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+CheckP0ButtonPressed:
+    lda #%10000000           ; if button is pressed
+    bit INPT4
+    bne MaybePaused
+    lda P1Paused
+    bne CheckP0Up           ; cant unpause if p1 has paused
+    lda P0Paused
+    lda #0                  ; unpause pause
+    sta P0Paused
+    bne OnP0Paused
+    jmp CheckP0Up
+
+MaybePaused:
+    lda P0Paused
+    beq CheckP0Up
+
+OnP0Paused:
+    jmp NextFrame
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Process joystick input for player 0/1 up/down
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CheckP0Up:
@@ -314,6 +341,7 @@ BallPassedP0:
     sta BallXPos            ; BallXPos = 80
     lda #%00000001
     sta BallMovement        ; BallMovement = 00000001
+    sta P0Paused            ; Pauses the game if P0 misses
     jmp NextFrame
 
 BallPassedP1:
@@ -326,7 +354,7 @@ BallPassedP1:
     lda #80
     sta BallXPos            ; BallXPos = 80
     lda #%00000001
-    sta BallMovement       ; BallMovement = 00000001
+    sta BallMovement        ; BallMovement = 00000001
     jmp NextFrame
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
