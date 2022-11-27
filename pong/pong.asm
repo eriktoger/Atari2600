@@ -238,20 +238,33 @@ endOfLine:
 CheckP0ButtonPressed:
     lda #%10000000           ; if button is pressed
     bit INPT4
-    bne MaybePaused
-    lda P1Paused
-    bne CheckP0Up           ; cant unpause if p1 has paused
-    lda P0Paused
+    bne P0MaybePaused
     lda #0                  ; unpause pause
     sta P0Paused
     bne OnP0Paused
-    jmp CheckP0Up
+    jmp CheckP1ButtonPressed
 
-MaybePaused:
+P0MaybePaused:
     lda P0Paused
-    beq CheckP0Up
+    beq CheckP1ButtonPressed
 
 OnP0Paused:
+    jmp NextFrame
+
+CheckP1ButtonPressed:
+    lda #%10000000           ; if button is pressed
+    bit INPT5
+    bne P1MaybePaused
+    lda #0                  ; unpause pause
+    sta P1Paused
+    bne OnP0Paused
+    jmp CheckP0Up
+
+P1MaybePaused:
+    lda P1Paused
+    beq CheckP0Up
+
+OnP1Paused:
     jmp NextFrame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Process joystick input for player 0/1 up/down
@@ -355,6 +368,7 @@ BallPassedP1:
     sta BallXPos            ; BallXPos = 80
     lda #%00000001
     sta BallMovement        ; BallMovement = 00000001
+    sta P1Paused            ; Pauses the game if P1 misses
     jmp NextFrame
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
