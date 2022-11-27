@@ -16,8 +16,8 @@ P0YPos          byte         ; player 0 y-position
 P1YPos          byte         ; player 1 y-position
 BallXPos        byte         ; ball x-position
 BallYPos        byte         ; ball y-position
-BallXMovement   byte         ; ball X-movement
-BallYMovement   byte         ; ball y-movement
+BallMovement    byte         ; ball movement pattern
+Temp            byte         ; debugging tool
 
 
 
@@ -35,12 +35,17 @@ Reset:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #50
     sta P0YPos              ; P0YPos  = 50
+    lda #95
     sta P1YPos              ; P1YPos  = 50
-    lda #45
+    lda #10
     sta BallYPos            ; BallYPos = 45
+    lda #80
     sta BallXPos            ; BallXPos = 45
-    lda #0
-    sta BallXMovement       ; BallXMovement = 0
+    lda #%00000001
+    sta BallMovement       ; BallMovement = 0
+    ; first bit is left or right  with zero being left
+    ; second bit is up or down with zero being up
+    ; rest of the bits show if the y change is 0,1,2,3
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Start a new frame by configuring VBLANK and VSYNC
@@ -64,7 +69,7 @@ StartFrame:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Let the TIA output the 37 recommended lines of VBLANK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    REPEAT 31
+    REPEAT 32
         sta WSYNC
     REPEND
 
@@ -111,10 +116,34 @@ Div15Loop
     lda #0
     sta VBLANK     ; turn VBLANK off
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Draw the 192/2 visible scanlines
+;; Draw the 192 visible scanlines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    lda #$8E
+                       ; reset TIA registers before displaying the score
+    sta COLUPF
+    lda #%11111111
+    sta PF0
+    sta PF1
+    sta PF2
 
-    ldx #96
+    ; 6 scanlines for upper border
+    sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    
+    lda #$C2
+    sta COLUBK
+    ldx #95 ; (192 - 12)/2 = 90 scanlines
+    lda #0
+    sta PF0
+    sta PF1
+    sta PF2
+
+    lda #$1C ; light green
+    sta COLUPF
 
 GameLineLoop:
     sta WSYNC 
@@ -170,6 +199,21 @@ endOfLine:
     sta WSYNC           ; wait for a scanline
     dex                 ;
     bne GameLineLoop 
+
+; Draw lower border
+    lda #$8E
+    sta COLUPF
+    lda #%11111111
+    sta PF0
+    sta PF1
+    sta PF2
+
+    sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
+    ;sta WSYNC
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Output 30 more VBLANK overscan lines to complete our frame
@@ -190,7 +234,7 @@ CheckP0Up:
     bit SWCHA
     bne CheckP0Down
     lda P0YPos
-    cmp #90                  ; if (player0 Y position > 90)
+    cmp #94                  ; if (player0 Y position > 90)
     bpl CheckP0Down          ;    then: skip increment
 P0UpPressed:                 ;    else:
     inc P0YPos               ;        increment Y position
@@ -200,7 +244,7 @@ CheckP0Down:
     bit SWCHA
     bne CheckP1Up
     lda P0YPos
-    cmp #15                  ; if (player0 Y position < 15)
+    cmp #13                  ; if (player0 Y position < 15)
     bmi CheckP1Up            ;    then: skip decrement
 P0DownPressed:               ;    else:
     dec P0YPos               ;        decrement Y position
@@ -230,31 +274,119 @@ EndInputCheck:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Check collision
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+P0Collision:    
     lda #%01000000
     bit CXP0FB
     beq P1Collision
-    lda #1
-    sta BallXMovement
+    lda BallMovement
+    eor #%10000000
+    sta BallMovement
+    jmp BallPFCollision
 
 P1Collision:
     lda #%01000000
     bit CXP1FB
-    beq UpdateBall
-    lda #0
-    sta BallXMovement
+    beq BallPFCollision
+    lda BallMovement
+    eor #%10000000
+    sta BallMovement
+
+BallPFCollision:
+    lda BallYPos
+    and #%11111111
+    bne BallUpper ; if zero
+    lda BallMovement
+    eor #%01000000
+    sta BallMovement
+    jmp UpdateBall
+BallUpper:
+    lda BallYPos
+    eor #97
+    bne UpdateBall
+    lda BallMovement
+    eor #%01000000
+    sta BallMovement
+    
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Lpdate ball position
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+UpdateBall:
+    lda BallMovement
+    and #%10000000
+    cmp #%00000000
+    bne BallGoLeft
+    dec BallXPos
+    dec BallXPos
+    jmp UpOrDown
+BallGoLeft:
+    inc BallXPos
+    inc BallXPos
+UpOrDown:    
+    lda BallMovement
+    and #%01000000
+    cmp #%00000000
+    bne BallGoDown
+BallGoUp:
+    lda BallMovement
+    and #%00000011
+    tay
+RaiseBall:
+    beq NextFrame
+    inc BallYPos
+    dey
+    jmp RaiseBall 
+
+BallGoDown:
+    lda BallMovement
+    and #%00000011
+    tay
+LowerBall:
+    beq NextFrame
+    dec BallYPos
+    dey
+    jmp LowerBall 
+
+; UpdateBall:
+;     lda BallMovement
+;     and #%10000000
+;     cmp #%00000000
+;     bne BallGoLeft
+;     dec BallXPos
+;     dec BallXPos
+;     jmp BallGoUp
+; BallGoLeft:
+;     inc BallXPos
+;     inc BallXPos
+
+;     lda BallMovement
+;     and #%01000000
+;     bne BallGoDown
+; BallGoUp:
+;     lda BallMovement
+;     and #%00000011
+;     tay
+; RaiseBall:
+;     inc BallYPos
+;     dey
+;     bne RaiseBall
+;     jmp NextFrame 
+
+; BallGoDown:
+;     lda BallMovement
+;     and #%00000011
+;     tay
+; LowerBall:
+;     dec BallYPos
+;     dey
+;     bne LowerBall
+;     jmp NextFrame    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Loop to next frame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-UpdateBall:
-    lda BallXMovement
-    cmp #0
-    bne BallGoLeft
-    dec BallXPos
-    jmp NextFrame
-BallGoLeft:
-    inc BallXPos
 NextFrame:
+    lda #0
     sta CXCLR
     jmp StartFrame
 
