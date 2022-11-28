@@ -207,7 +207,7 @@ endOfLine:
     sta PF0
     sta PF1
     sta PF2
-    
+    sta WSYNC           ; wait for a scanline
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Output 30 more VBLANK overscan lines to complete our frame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
