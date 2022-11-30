@@ -20,7 +20,8 @@ BallMovement    byte         ;4: ball movement pattern
 P0Paused        byte         ;5: player 0 has paused
 P1Paused        byte         ;6: player 1 has paused
 Random          byte         ;7: random number for vertival movement
-Temp            byte         ;8: debugging tool
+SoundVolume     byte         ;8: sound volume
+Temp            byte         ;9: debugging tool
 
 
 
@@ -82,9 +83,18 @@ StartFrame:
         sta WSYNC
     REPEND
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Set Sound volume to zero
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    lda SoundVolume
+    sta AUDV0
+    beq SetColors
+    dec SoundVolume
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Calculations and tasks performed during the VBLANK section
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SetColors:
     lda #$C2
     sta COLUBK
     lda #$1C ; light green
@@ -315,6 +325,7 @@ P0Collision:
     lda #%01000000
     bit CXP0FB              ; check if there is a collision between player0 and ball
     beq P1Collision         ; if not, go to player1
+    jsr StartCollisionSound
     lda BallMovement
     eor #%10000000          ; toggle the direction if collision
     sta BallMovement
@@ -325,6 +336,7 @@ P1Collision:
     lda #%01000000
     bit CXP1FB              ; check if there is a collision between player1 and ball
     beq BallWallCollision   ; if not, go to Ball vs Wall
+    jsr StartCollisionSound
     lda BallMovement
     eor #%10000000          ; toggle the direction if collision
     sta BallMovement
@@ -344,6 +356,7 @@ BallWallCollision:
     beq SwitchVertical      ; if y-pos is 96 we need to make the ball go down
     jmp BallPassedP0        ;if not zero or 97 we skip SwitchVertical
 SwitchVertical
+    jsr StartCollisionSound
     lda BallMovement
     eor #%01000000
     sta BallMovement
@@ -354,6 +367,7 @@ BallPassedP0:
     sec
     cmp #5
     bpl BallPassedP1
+    jsr StartGoalSound
     lda #10
     sta BallYPos            ; BallYPos = 10
     lda #80
@@ -368,6 +382,7 @@ BallPassedP1:
     bpl UpdateBall
     cmp #144
     bmi UpdateBall
+    jsr StartGoalSound
     lda #10
     sta BallYPos            ; BallYPos = 10
     lda #80
@@ -421,6 +436,30 @@ NextFrame:
     lda #0
     sta CXCLR
     jmp StartFrame
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Subroutine to play sound on collision
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+StartCollisionSound subroutine
+    lda #%00000010
+    sta SoundVolume         ; set volumne to 2 / 15
+    lda #%00011111
+    sta AUDF0               ; set pitch to 31 / 31
+    lda #13
+    sta AUDC0               ; set effect to pure tone
+    rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Subroutine to play sound on goal
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+StartGoalSound subroutine
+    lda #%00001001
+    sta SoundVolume         ; set volumne to 9 / 15
+    lda #%00011111
+    sta AUDF0               ; set pitch to 31 / 31
+    lda #15
+    sta AUDC0               ; set effect to buzz
+    rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subroutine to generate a Linear-Feedback Shift Register random number
