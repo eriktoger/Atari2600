@@ -12,14 +12,15 @@
     seg.u Variables
     org $80
 
-P0YPos          byte         ; player 0 y-position
-P1YPos          byte         ; player 1 y-position
-BallXPos        byte         ; ball x-position
-BallYPos        byte         ; ball y-position
-BallMovement    byte         ; ball movement pattern
-P0Paused        byte         ; player 0 has paused
-P1Paused        byte         ; player 1 has paused
-Temp            byte         ; debugging tool
+P0YPos          byte         ;0: player 0 y-position
+P1YPos          byte         ;1: player 1 y-position
+BallXPos        byte         ;2: ball x-position
+BallYPos        byte         ;3: ball y-position
+BallMovement    byte         ;4: ball movement pattern
+P0Paused        byte         ;5: player 0 has paused
+P1Paused        byte         ;6: player 1 has paused
+Random          byte         ;7: random number for vertival movement
+Temp            byte         ;8: debugging tool
 
 
 
@@ -49,6 +50,8 @@ Reset:
     sta P0Paused            ; start the game with p0 paused
     lda #0
     sta P1Paused            ; start with
+    lda #$1E
+    sta Random
     ; first bit is left or right  with zero being left
     ; second bit is up or down with zero being up
     ; rest of the bits show if the y change is 0,1,2,3
@@ -133,10 +136,11 @@ Div15Loop
     sta PF2
 
     sta WSYNC  ; 1 scanline for upper border
+    sta WSYNC  ; 1 scanline for upper border
     
     lda #$C2
     sta COLUBK
-    ldx #95 ; (192 - 2)/2 = 95 scanlines
+    ldx #94 ; (192 - 4)/2 = 94 scanlines
     lda #0
     sta PF0
     sta PF1
@@ -151,8 +155,8 @@ GameLineLoop:
     cmp P0YPos      ; check if we should display p0 paddle
     bpl noP0Display ; if we are above the Y, we dont display
     clc
-    adc #10
-    cmp P0YPos      ; if we are 10 steps below we dont display
+    adc #14         ; size of paddle
+    cmp P0YPos      ; if we are 14 steps below we dont display
     bmi noP0Display
     lda #$98
     sta COLUP0
@@ -181,9 +185,9 @@ displayP1:
     txa
     cmp P1YPos           ; check if we should display p1 paddle
     bpl noP1Display      ; if we are above the Y, we dont display
-    adc #10
-    cmp P1YPos
-    bmi noP1Display     ; if we are 10 steps below we dont display
+    adc #14
+    cmp P1YPos           ; size of paddle
+    bmi noP1Display      ; if we are 14 steps below we dont display
     lda #%00011000
     sta GRP1
     lda #$34
@@ -207,6 +211,7 @@ endOfLine:
     sta PF0
     sta PF1
     sta PF2
+    sta WSYNC           ; wait for a scanline
     sta WSYNC           ; wait for a scanline
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Output 30 more VBLANK overscan lines to complete our frame
@@ -261,10 +266,12 @@ CheckP0Up:
     bit SWCHA
     bne CheckP0Down
     lda P0YPos
-    cmp #96                  ; if (player0 Y position > 96)
+    cmp #98                  ; if (player0 Y position > 98)
     bpl CheckP0Down          ;    then: skip increment
 P0UpPressed:                 ;    else:
     inc P0YPos               ;        increment Y position
+    inc P0YPos
+    inc Random               ; modify random on input
 
 CheckP0Down:
     lda #%00100000           ; joystick down for player 0
@@ -275,16 +282,18 @@ CheckP0Down:
     bmi CheckP1Up            ;    then: skip decrement
 P0DownPressed:               ;    else:
     dec P0YPos               ;        decrement Y position
+    dec P0YPos
 
 CheckP1Up:
     lda #%00000001           ; joystick up for player 1
     bit SWCHA
     bne CheckP1Down
     lda P1YPos
-    cmp #96                  ; if (player1 Y position > 96)
+    cmp #98                  ; if (player1 Y position > 98)
     bpl CheckP1Down          ;    then: skip increment
 P1UpPressed:                 ;    else:
     inc P1YPos               ;        increment Y position
+    inc P1YPos
 
 CheckP1Down:
     lda #%00000010           ; joystick down for player 1
@@ -295,6 +304,7 @@ CheckP1Down:
     bmi EndInputCheck         ;    then: skip decrement
 P1DownPressed:                ;    else:
     dec P1YPos                ;        decrement Y position
+    dec P1YPos
 
 EndInputCheck:
 
@@ -308,6 +318,7 @@ P0Collision:
     lda BallMovement
     eor #%10000000          ; toggle the direction if collision
     sta BallMovement
+    jsr SetRandomVerticalMovement 
     jmp BallWallCollision   ; We dont need to check player1 if player0 is hit
 
 P1Collision:
@@ -317,12 +328,20 @@ P1Collision:
     lda BallMovement
     eor #%10000000          ; toggle the direction if collision
     sta BallMovement
+    jsr SetRandomVerticalMovement
 
 BallWallCollision:
     lda BallYPos
     beq SwitchVertical      ; if y-pos is zero we need to make the ball go up
+    lda BallYPos
+    eor #1
+    beq SwitchVertical      ; if y-pos is 1 we need to make the ball go up
+    lda BallYPos
     eor #97
-    beq SwitchVertical      ; if y-pos is 97 we need to make the ball go up
+    beq SwitchVertical      ; if y-pos is 97 we need to make the ball go down
+    lda BallYPos
+    eor #96
+    beq SwitchVertical      ; if y-pos is 96 we need to make the ball go down
     jmp BallPassedP0        ;if not zero or 97 we skip SwitchVertical
 SwitchVertical
     lda BallMovement
@@ -402,6 +421,42 @@ NextFrame:
     lda #0
     sta CXCLR
     jmp StartFrame
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Subroutine to generate a Linear-Feedback Shift Register random number
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Generate a LFSR random number for the X-position of the bomber.
+;; The routine also sets the y-movement for the ball
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SetRandomVerticalMovement subroutine
+    lda Random
+    asl
+    eor Random
+    asl
+    eor Random
+    asl
+    asl
+    eor Random
+    asl
+    rol Random               ; performs a series of shifts and bit operations
+    lsr
+    lsr                      ; divide the value by 4 with 2 right shifts
+    and #%00000001           ; get 0 or 1
+    clc                      ; clear carry before add
+    adc #1                   ; vertical movement is alwats 1 or 2
+   
+    pha                      ; push y movment to stack
+    lda BallMovement         ; Load ball movment
+    and #%11111100           ; make room for new y movement
+    sta BallMovement         ; save it temporarily
+    pla                      ; pull y movement from stack
+  
+    clc
+    adc BallMovement         ; add new y movement
+    sta Temp
+    sta BallMovement
+
+    rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Complete ROM size with exactly 4KB
