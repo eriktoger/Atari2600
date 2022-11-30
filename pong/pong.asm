@@ -23,8 +23,6 @@ Random          byte         ;7: random number for vertival movement
 SoundVolume     byte         ;8: sound volume
 Temp            byte         ;9: debugging tool
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Start our ROM code at memory address $F000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -47,15 +45,15 @@ Reset:
     sta BallXPos            ; BallXPos = 80
     lda #%00000001
     sta BallMovement        ; BallMovement = 00000001
-    lda #1
-    sta P0Paused            ; start the game with p0 paused
-    lda #0
-    sta P1Paused            ; start with
-    lda #$1E
-    sta Random
     ; first bit is left or right  with zero being left
     ; second bit is up or down with zero being up
     ; rest of the bits show if the y change is 0,1,2,3
+    lda #1
+    sta P0Paused            ; start the game with p0 paused
+    lda #0
+    sta P1Paused            ; start game with p1 unpaused
+    lda #$1E
+    sta Random              ; start value for our Random value
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Start a new frame by configuring VBLANK and VSYNC
@@ -74,7 +72,6 @@ StartFrame:
 
     lda #0
     sta VSYNC      ; turn VSYNC off
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Let the TIA output the 37 recommended lines of VBLANK
@@ -133,30 +130,30 @@ Div15Loop
     sta HMOVE
     sta WSYNC
     lda #0
-    sta VBLANK     ; turn VBLANK off
+    sta VBLANK      ; turn VBLANK off
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Draw the 192 visible scanlines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #$8E
-                       ; reset TIA registers before displaying the score
+                    ; reset TIA registers before displaying the score
     sta COLUPF
     lda #%11111111
     sta PF0
     sta PF1
     sta PF2
 
-    sta WSYNC  ; 1 scanline for upper border
-    sta WSYNC  ; 1 scanline for upper border
+    sta WSYNC       ; 1 scanline for upper border
+    sta WSYNC       ; 1 scanline for upper border
     
     lda #$C2
     sta COLUBK
-    ldx #94 ; (192 - 4)/2 = 94 scanlines
+    ldx #94         ; (192 - 4)/2 = 94 scanlines
     lda #0
     sta PF0
     sta PF1
     sta PF2
 
-    lda #$1C ; light green
+    lda #$1C        ; light green
     sta COLUPF
 
 GameLineLoop:
@@ -185,11 +182,11 @@ displayBall:
     cmp BallYPos
     bne noBall
     lda #2
-    sta ENABL  ; enable the ball!
+    sta ENABL            ; enable the ball
     jmp displayP1
 noBall:
-    lda #0    ;zero disables the ball
-    sta ENABL  ;disable the ball
+    lda #0
+    sta ENABL            ;disable the ball
 
 displayP1:
     txa
@@ -211,7 +208,7 @@ noP1Display:
     
 endOfLine:
     sta WSYNC           ; wait for a scanline
-    dex                 ;
+    dex
     bne GameLineLoop 
 
 ; Draw lower border
@@ -221,27 +218,27 @@ endOfLine:
     sta PF0
     sta PF1
     sta PF2
-    sta WSYNC           ; wait for a scanline
-    sta WSYNC           ; wait for a scanline
+    sta WSYNC           ; 1 scanline for lower border
+    sta WSYNC           ; 1 scanline for lower border
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Output 30 more VBLANK overscan lines to complete our frame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #2
-    sta VBLANK     ; enable VBLANK back again
+    sta VBLANK          ; enable VBLANK back again
     REPEAT 30
-       sta WSYNC   ; output the 30 recommended overscan lines
+       sta WSYNC        ;output the 30 recommended overscan lines
     REPEND
     lda #0
-    sta VBLANK               ; turn off VBLANK
+    sta VBLANK          ; turn off VBLANK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Pause Game
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CheckP0ButtonPressed:
-    lda #%10000000           ; if button is pressed
+    lda #%10000000       ; if button is pressed
     bit INPT4
     bne P0MaybePaused
-    lda #0                  ; unpause pause
+    lda #0               ; unpause pause
     sta P0Paused
     bne OnP0Paused
     jmp CheckP1ButtonPressed
