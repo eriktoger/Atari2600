@@ -4,7 +4,7 @@ The material in Learn-Assembly is from this wonderful course:
 
 https://www.udemy.com/course/programming-games-for-the-atari-2600/
 
-The code in the pong-folder is heavily inspired by that course.
+The code in the pong-folder is inspired by the course.
 
 ## You need to install:
 
@@ -14,4 +14,4 @@ The code in the pong-folder is heavily inspired by that course.
 ### Run pong
 
 - Cd into pong
-- run make && make run
+- $ make && make run
