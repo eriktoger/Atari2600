@@ -35,10 +35,9 @@ Reset:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initialize RAM variables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    lda #50
-    sta P0YPos              ; P0YPos  = 50
-    lda #95
-    sta P1YPos              ; P1YPos  = 95
+    lda #55
+    sta P0YPos              ; P0YPos  = 55
+    sta P1YPos              ; P1YPos  = 55
     lda #10
     sta BallYPos            ; BallYPos = 10
     lda #80
